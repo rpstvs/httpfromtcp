@@ -20,7 +20,7 @@ func main() {
 
 	}
 	defer listener.Close()
-
+	log.Println("Listening for traffic on", port)
 	for {
 		conn, err := listener.Accept()
 		if err != nil {
