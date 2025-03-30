@@ -9,6 +9,7 @@ import (
 
 type Request struct {
 	RequestLine RequestLine
+	state       requestState
 }
 
 type RequestLine struct {
@@ -17,42 +18,49 @@ type RequestLine struct {
 	Method        string
 }
 
+type requestState int
+
 const crlf = "\r\n"
+
+const (
+	initialized requestState = iota
+	done
+)
+
+const bufferSize = 8
 
 func RequestFromReader(reader io.Reader) (*Request, error) {
 
-	dat, err := io.ReadAll(reader)
+	buf := make([]byte, bufferSize)
+	readToIndex = 0
 
-	if err != nil {
-		return nil, err
+	req := Request{
+		state: initialized,
 	}
 
-	requestLine, err := parseRequestLine(dat)
-
-	if err != nil {
-		return nil, err
+	for req.state != done {
+		if len(buf) == bufferSize {
+			buf2 := make([]byte, len(buf)*2)
+			copy(buf2, buf)
+		}
 	}
-
-	return &Request{
-		RequestLine: *requestLine,
-	}, nil
 
 }
 
-func parseRequestLine(data []byte) (*RequestLine, error) {
+func parseRequestLine(data []byte) (*RequestLine, int, error) {
 	idx := bytes.Index(data, []byte(crlf))
 
 	if idx == -1 {
-		return nil, fmt.Errorf("could not find CRLF in request-line")
+		return nil, 0, fmt.Errorf("could not find CRLF in request-line")
 	}
 
 	requestLineText := string(data[:idx])
 	requestLine, err := requestLineFromString(requestLineText)
 
 	if err != nil {
-		return nil, err
+		return nil, 0, err
 	}
-	return requestLine, nil
+	return requestLine, idx + 2, nil
 }
 
 func requestLineFromString(str string) (*RequestLine, error) {
@@ -96,4 +104,22 @@ func requestLineFromString(str string) (*RequestLine, error) {
 		HttpVersion:   version,
 	}, nil
 
+}
+
+func (r *Request) parse(data []byte) (int, error) {
+
+	switch r.state {
+	case initialized:
+		requestLine, n, err := parseRequestLine(data)
+		if n == 0 {
+			return 0, nil
+		}
+		r.RequestLine = *requestLine
+		r.state = done
+	case done:
+		return 0, fmt.Errorf("error: trying to read data in a done state")
+	default:
+		return 0, fmt.Errorf("error: unknown state")
+	}
+	return int(r.state), nil
 }
