@@ -26,7 +26,7 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	parts := bytes.SplitN(data[:idx], []byte(":"), 2)
-	key := string(parts[0])
+	key := strings.ToLower(string(parts[0]))
 
 	if key != strings.TrimRight(key, " ") {
 		return 0, false, fmt.Errorf("invalid header name: %s", key)
@@ -35,6 +35,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	value := bytes.TrimSpace(parts[1])
 	key = strings.TrimSpace(key)
 
+	if !validTokens([]byte(key)) {
+		return 0, false, fmt.Errorf("invalid header token found: %s", key)
+	}
+
 	h.Set(key, string(value))
 
 	return idx + 2, false, nil
@@ -42,5 +46,17 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 }
 
 func (h Headers) Set(key, value string) {
+	key = strings.ToLower(key)
 	h[key] = value
+}
+
+var tokenChars = []byte{'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~'}
+
+func validTokens(data []byte) bool {
+	for _, v := range data {
+		if !(v >= 'A' && v <= 'Z' || v >= 'a' && v <= 'z' || v >= '0' && v <= '9' || v == '-') {
+			return false
+		}
+	}
+	return true
 }
