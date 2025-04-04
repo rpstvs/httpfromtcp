@@ -39,13 +39,18 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 		return 0, false, fmt.Errorf("invalid header token found: %s", key)
 	}
 
+	if val, ok := h[key]; ok {
+		newVal := fmt.Sprintf("%s,%s", val, value)
+		h.Set(key, string(newVal))
+		return idx + 2, false, nil
+	}
 	h.Set(key, string(value))
-
 	return idx + 2, false, nil
 
 }
 
 func (h Headers) Set(key, value string) {
+
 	key = strings.ToLower(key)
 	h[key] = value
 }
