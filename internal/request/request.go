@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/rpstvs/httpfromtcp/internal/headers"
@@ -28,6 +29,7 @@ type requestState int
 const (
 	requestStateInitialized requestState = iota
 	requestStateParsingHeaders
+	requestStateParsingBody
 	requestStateDone
 )
 const crlf = "\r\n"
@@ -172,10 +174,38 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
-			r.state = requestStateDone
+			r.state = requestStateParsingBody
 
 		}
 		return n, nil
+
+	case requestStateParsingBody:
+		val, ok := r.Headers.Get("Content-Length")
+		if !ok {
+			r.state = requestStateDone
+			return 0, nil
+		}
+
+		for _, v := range data {
+			fmt.Println(v)
+			r.Body = append(r.Body, v)
+		}
+
+		contentLen, err := strconv.Atoi(val)
+		fmt.Println(data, contentLen)
+		if err != nil {
+			return 0, err
+		}
+
+		if contentLen > len(data) {
+			return 0, fmt.Errorf("header length different data length")
+		}
+
+		if contentLen == len(data) {
+			r.state = requestStateDone
+		}
+
+		return len(data), nil
 	case requestStateDone:
 		return 0, fmt.Errorf("error: trying to read data in a done state")
 	default:

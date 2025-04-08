@@ -53,6 +53,15 @@ func (h Headers) Set(key, value string) {
 	}
 	h[key] = value
 }
+func (h Headers) Get(key string) (string, bool) {
+
+	key = strings.ToLower(key)
+
+	if _, ok := h[key]; !ok {
+		return "", false
+	}
+	return h[key], true
+}
 
 var tokenChars = []byte{'!', '#', '$', '%', '&', '\'', '*', '+', '-', '.', '^', '_', '`', '|', '~'}
 
