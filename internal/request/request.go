@@ -12,10 +12,11 @@ import (
 )
 
 type Request struct {
-	RequestLine RequestLine
-	Headers     headers.Headers
-	Body        []byte
-	state       requestState
+	RequestLine    RequestLine
+	Headers        headers.Headers
+	Body           []byte
+	state          requestState
+	bodyLengthRead int
 }
 
 type RequestLine struct {
@@ -44,6 +45,7 @@ func RequestFromReader(reader io.Reader) (*Request, error) {
 	req := &Request{
 		state:   requestStateInitialized,
 		Headers: headers.NewHeaders(),
+		Body:    make([]byte, 0),
 	}
 
 	for req.state != requestStateDone {
@@ -183,25 +185,22 @@ func (r *Request) parseSingle(data []byte) (int, error) {
 		val, ok := r.Headers.Get("Content-Length")
 		if !ok {
 			r.state = requestStateDone
-			return 0, nil
-		}
-
-		for _, v := range data {
-			fmt.Println(v)
-			r.Body = append(r.Body, v)
+			return len(data), nil
 		}
 
 		contentLen, err := strconv.Atoi(val)
-		fmt.Println(data, contentLen)
+
 		if err != nil {
 			return 0, err
 		}
+		r.Body = append(r.Body, data...)
+		r.bodyLengthRead += len(data)
 
-		if contentLen > len(data) {
+		if contentLen < r.bodyLengthRead {
 			return 0, fmt.Errorf("header length different data length")
 		}
 
-		if contentLen == len(data) {
+		if contentLen == r.bodyLengthRead {
 			r.state = requestStateDone
 		}
 

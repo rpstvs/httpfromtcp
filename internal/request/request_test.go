@@ -210,7 +210,7 @@ func TestBodyParse(t *testing.T) {
 	require.NoError(t, err)
 	require.NotNil(t, r)
 
-	assert.Equal(t, "hello world!", string(r.Body))
+	assert.Equal(t, "hello world!\n", string(r.Body))
 
 	//Test: Empty body - Content-length reported 0
 	reader = &chunkReader{
