@@ -13,7 +13,7 @@ type Server struct {
 }
 
 func Serve(port int) (*Server, error) {
-	listener, err := net.Listen("tcp", fmt.Sprint(":%d", port))
+	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", port))
 	if err != nil {
 		return nil, err
 	}
@@ -31,15 +31,22 @@ func (server *Server) listen() {
 	for {
 		conn, err := server.listener.Accept()
 		if err != nil {
+			if server.closed.Load() {
+				return
+			}
 			log.Println("couldnt establish conn")
+			continue
+
 		}
-		server.handle(conn)
+		go server.handle(conn)
+
 	}
 
 }
 
-func (server *Server) Close() {
-	server.listener.Close()
+func (server *Server) Close() error {
+	server.closed.Store(true)
+	return server.listener.Close()
 }
 
 func (server *Server) handle(conn net.Conn) {
