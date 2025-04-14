@@ -3,7 +3,6 @@ package response
 import (
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/rpstvs/httpfromtcp/internal/headers"
 )
@@ -34,15 +33,20 @@ func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
 }
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
-	headersResp := headers.Headers{}
-	headersResp.Set("Content-Length", strconv.Itoa(contentLen))
+	headersResp := headers.NewHeaders()
+	headersResp.Set("Content-Length", fmt.Sprintf("%d", contentLen))
 	headersResp.Set("Connection", "close")
 	headersResp.Set("Content-Type", "text/plain")
-	headersResp.Get("")
+
 	return headersResp
 }
 
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
-	w.Write([]byte(headers.Get("Cont").val))
+	for k, v := range headers {
+		_, err := w.Write([]byte(fmt.Sprintf("%s:%s", k, v)))
+		if err != nil {
+			return err
+		}
+	}
 	return nil
 }
