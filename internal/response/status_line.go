@@ -13,19 +13,20 @@ const (
 	StatusInternalServerError = 500
 )
 
-var StatusLine = map[StatusCode]string{
-	200: "HTTP/1.1 200 OK\r\n",
-	400: "HTTP/1.1 400 Bad Request\r\n",
-	500: "HTTP/1.1 500 Internal Server Error\r\n",
+func getStatusLine(statuscode StatusCode) []byte {
+	reasonPhrase := ""
+	switch statuscode {
+	case StatusOK:
+		reasonPhrase = "OK"
+	case StatusBadRequest:
+		reasonPhrase = "Bad Request"
+	case StatusInternalServerError:
+		reasonPhrase = "Internal Server Error"
+	}
+	return []byte(fmt.Sprintf("HTTP/1.1 %d %s\r\n", statuscode, reasonPhrase))
 }
 
 func WriteStatusLine(w io.Writer, statusCode StatusCode) error {
-	val, ok := StatusLine[statusCode]
-
-	if !ok {
-		return fmt.Errorf("status code not found")
-	}
-
-	w.Write([]byte(val))
-	return nil
+	_, err := w.Write(getStatusLine(statusCode))
+	return err
 }

@@ -48,7 +48,10 @@ func (server *Server) listen() {
 
 func (server *Server) Close() error {
 	server.closed.Store(true)
-	return server.listener.Close()
+	if server.listener != nil {
+		return server.listener.Close()
+	}
+	return nil
 }
 
 func (server *Server) handle(conn net.Conn) {
