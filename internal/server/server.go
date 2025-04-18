@@ -1,18 +1,35 @@
 package server
 
 import (
+	"bytes"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"sync/atomic"
 
+	"github.com/rpstvs/httpfromtcp/internal/request"
 	"github.com/rpstvs/httpfromtcp/internal/response"
 )
 
+type HandlerError struct {
+	StatusCode response.StatusCode
+	Message    string
+}
+
+type Handler func(w io.Writer, req *request.Request) *HandlerError
 type Server struct {
 	listener net.Listener
 	closed   atomic.Bool
 	handler  Handler
+}
+
+func (he HandlerError) Write(w io.Writer) {
+	response.WriteStatusLine(w, he.StatusCode)
+	messageBytes := []byte(he.Message)
+	headers := response.GetDefaultHeaders(len(messageBytes))
+	response.WriteHeaders(w, headers)
+	w.Write(messageBytes)
 }
 
 func Serve(port int, handler Handler) (*Server, error) {
@@ -59,9 +76,27 @@ func (server *Server) Close() error {
 func (server *Server) handle(conn net.Conn) {
 	defer conn.Close()
 
-	response.WriteStatusLine(conn, response.StatusOK)
-	headers := response.GetDefaultHeaders(0)
-	if err := response.WriteHeaders(conn, headers); err != nil {
-		fmt.Printf("error: %v", err)
+	req, err := request.RequestFromReader(conn)
+	if err != nil {
+		hErr := &HandlerError{
+			StatusCode: response.StatusBadRequest,
+			Message:    err.Error(),
+		}
+		hErr.Write(conn)
+		return
 	}
+	buf := bytes.NewBuffer([]byte{})
+	hErr := server.handler(buf, req)
+
+	if hErr != nil {
+		hErr.Write(conn)
+		return
+	}
+	b := buf.Bytes()
+	response.WriteStatusLine(conn, response.StatusOK)
+	headers := response.GetDefaultHeaders(len(b))
+	response.WriteHeaders(conn, headers)
+	conn.Write(b)
+	return
+
 }
