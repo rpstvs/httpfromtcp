@@ -104,3 +104,14 @@ func (w *Writer) WriteChunkedBodyDone() (int, error) {
 	}
 	return n, nil
 }
+
+func (w *Writer) WriteTrailers(h headers.Headers) error {
+	for k, v := range h {
+		_, err := w.writer.Write([]byte(fmt.Sprintf("%s: %v\r\n", k, v)))
+		if err != nil {
+			return err
+		}
+	}
+	w.writer.Write([]byte("\r\n"))
+	return nil
+}

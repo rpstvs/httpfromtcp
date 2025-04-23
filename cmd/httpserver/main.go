@@ -1,6 +1,7 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"log"
@@ -10,6 +11,7 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/rpstvs/httpfromtcp/internal/headers"
 	"github.com/rpstvs/httpfromtcp/internal/request"
 	"github.com/rpstvs/httpfromtcp/internal/response"
 	"github.com/rpstvs/httpfromtcp/internal/server"
@@ -124,16 +126,17 @@ func proxyHandler(w *response.Writer, r *request.Request) {
 	}
 
 	defer resp.Body.Close()
-
+	// Writing Headers
 	w.WriteStatusLine(response.StatusOK)
 	h := response.GetDefaultHeaders(0)
 	h.Override("Transfer-Encoding", "chunked")
+	h.Override("Trailer", "X-Content-SHA256, X-Content-Length")
 	h.Remove("Content-Length")
 	w.WriteHeaders(h)
 
 	const maxChunksize = 1024
 	buffer := make([]byte, maxChunksize)
-
+	fullBody := make([]byte, 0)
 	for {
 		n, err := resp.Body.Read(buffer)
 
@@ -146,7 +149,7 @@ func proxyHandler(w *response.Writer, r *request.Request) {
 				fmt.Println("Error writing chunked body", err)
 				break
 			}
-
+			fullBody = append(fullBody, buffer[:n]...)
 		}
 		if err == io.EOF {
 			break
@@ -165,5 +168,20 @@ func proxyHandler(w *response.Writer, r *request.Request) {
 	if err != nil {
 		fmt.Println("Error writing chunked body done", err)
 	}
+
+	trailers := headers.NewHeaders()
+
+	sha256 := fmt.Sprintf("%s", sha256.Sum256(fullBody))
+
+	trailers.Override("X-Content-SHA256", sha256)
+	trailers.Override("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
+
+	err = w.WriteTrailers(trailers)
+
+	if err != nil {
+		fmt.Println("couldnt write trailers", err)
+	}
+
+	fmt.Println("Wrote trailers")
 
 }
