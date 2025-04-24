@@ -50,6 +50,10 @@ func handler(w *response.Writer, req *request.Request) {
 		handler500(w, req)
 		return
 	}
+	if req.RequestLine.RequestTarget == "/video" {
+		handlervideo(w, req)
+		return
+	}
 	handler200(w, req)
 	return
 }
@@ -171,7 +175,7 @@ func proxyHandler(w *response.Writer, r *request.Request) {
 
 	trailers := headers.NewHeaders()
 
-	sha256 := fmt.Sprintf("%s", sha256.Sum256(fullBody))
+	sha256 := fmt.Sprintf("%x", sha256.Sum256(fullBody))
 
 	trailers.Override("X-Content-SHA256", sha256)
 	trailers.Override("X-Content-Length", fmt.Sprintf("%d", len(fullBody)))
@@ -184,4 +188,18 @@ func proxyHandler(w *response.Writer, r *request.Request) {
 
 	fmt.Println("Wrote trailers")
 
+}
+
+func handlervideo(w *response.Writer, _ *request.Request) {
+	w.WriteStatusLine(response.StatusOK)
+	vidPath := "./assets/vim.mp4"
+	videoByte, err := os.ReadFile(vidPath)
+	if err != nil {
+		fmt.Println("couldnt read file")
+	}
+	h := response.GetDefaultHeaders(len(videoByte))
+	h.Override("Content-Type", "video/mp4")
+	w.WriteHeaders(h)
+	w.WriteBody(videoByte)
+	return
 }
