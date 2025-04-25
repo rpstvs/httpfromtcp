@@ -195,7 +195,7 @@ func handlervideo(w *response.Writer, _ *request.Request) {
 	vidPath := "./assets/vim.mp4"
 	videoByte, err := os.ReadFile(vidPath)
 	if err != nil {
-		fmt.Println("couldnt read file")
+		handler500(w, nil)
 	}
 	h := response.GetDefaultHeaders(len(videoByte))
 	h.Override("Content-Type", "video/mp4")
